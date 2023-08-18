@@ -1,5 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
+import ast
+import os
 
 def get_song_download_links(song_name):
 
@@ -11,17 +13,29 @@ def get_song_download_links(song_name):
     data = response.json()
 
     download_links = []
+
     for audio_info in data["audios"][""]:
-        download_links.append(audio_info["url"])
+        if len(audio_info) == 0:
+            print(f"{song_name} NOT FOUND")
+        else:
+            download_links.append((audio_info["tit_art"], audio_info["url"]))
 
     return download_links
 
-def download_song(download_link, file_name):
+def download_song(file_name, download_link):
+
+    if 'https' not in download_link:
+        download_link = "https://slider.kz/" + download_link
 
     response = requests.get(download_link)
+
+    if not os.path.exists("songs"):
+        os.mkdir("songs")
     
-    with open(file_name, "wb") as f:
+    with open(f"songs/{file_name}.mp3", "wb") as f:
         f.write(response.content)
+
+    print(f"Downloaded {song_name}")
 
 def get_song_names(user):
 
@@ -32,7 +46,7 @@ def get_song_names(user):
 
     song_names = []
     song_elements = soup.find_all("h2", itemprop="name")
-    
+
     for song_element in song_elements:
         song_name = song_element.a.get_text(strip=True)
         song_names.append(song_name)
@@ -41,17 +55,45 @@ def get_song_names(user):
 
 if __name__ == "__main__":
 
-    song_names = get_song_names("abrelaboca-a")
+    #Read the contents of the file and load them into a list
+    # with open('likes.txt', 'r', encoding='utf-8') as file:
+    #     songs_list = file.read().splitlines()
 
-    print(song_names)
-    print(len(song_names))
-    
-    #song_names = ['papi chulo ukg']  # Replace with your list of song names
-    
-    # for song_name in song_names:
-    #     download_links = get_song_download_links(song_name)
-        
-    #     for idx, download_link in enumerate(download_links, start=1):
-    #         file_name = f"{song_name}_{idx}.mp3"
-    #         download_song(download_link, file_name)
-    #         print(f"Downloaded {file_name}")
+
+    # download_links = {}
+    # for song_name in songs_list:
+    #     download_links[song_name] = get_song_download_links(song_name)
+
+    # # Open the file in write mode and write the dictionary as a string
+    # with open('download_links.txt', 'w', encoding='utf-8') as file:
+    #     file.write(str(download_links))
+    # print(f'Dictionary written to {filename}')
+
+    # Open the file in read mode with utf-8 encoding
+    with open('download_links.txt', 'r', encoding='utf-8') as file:
+        content = file.read()
+
+    # Use ast.literal_eval() to safely convert the content back to a dictionary
+    try:
+        loaded_data = ast.literal_eval(content)
+        print("Dictionary loaded successfully.")
+    except (ValueError, SyntaxError):
+        print("Error loading the dictionary from the file.")
+
+    # Now you can work with the loaded_data dictionary
+    # For example, you can access its keys and values like this:
+    for key, value in loaded_data.items():
+        if len(value) == 0:
+            print() #
+        elif len(value) == 1:
+
+            song_name = value[0][0]
+            song_download_link = value[0][1]
+
+            if not os.path.isfile(f"songs/{value[0][0]}.mp3"):
+                download_song(song_name, song_download_link)
+            else:
+                print(f"{song_name} already downloaded")
+
+        elif len(value) > 1:
+            print() #"Has multiple links"
