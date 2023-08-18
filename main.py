@@ -26,12 +26,8 @@ def download_song(download_link, file_name):
 def get_song_names(user):
 
     search_url = f"https://soundcloud.com/{user}/likes"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-    }
     
-    response = requests.get(search_url, headers=headers)
+    response = requests.get(search_url)
     soup = BeautifulSoup(response.content, "html.parser")    
 
     song_names = []
