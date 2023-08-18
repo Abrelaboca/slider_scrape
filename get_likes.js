@@ -17,14 +17,14 @@ var insertJQuery = function() {
 
 var outputLikes = function() {
 	var separator = '\t';
-	var results = ['User' + separator + 'Track' + separator + 'URL'];
+	var results = []; //'User' + separator + 'Track' + separator + 'URL'
 	$(".badgeList__item").each(
 		function() {
-			var user = $(this).find(".playableTile__usernameHeadingContainer").first().text();
+            var user = $(this).find(".playableTile__usernameHeadingContainer").first().text();
 			var track = $(this).find(".playableTile__descriptionContainer a").first();
 			var trackTitle = $.trim(track.text());
 			var trackUrl = track[0].href;
-			var record = $.trim(user) + separator + trackTitle + separator + trackUrl;
+			var record = '"' + $.trim(user) + " " + trackTitle + '"' + ",";
 			results.push(record);
 		});
 	console.log(results.join('\n'));
