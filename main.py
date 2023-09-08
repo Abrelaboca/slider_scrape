@@ -33,7 +33,7 @@ def get_song_download_links(song):
     for audio_info in data["audios"][""]:
         # No results even with user
         if len(audio_info) == 0:
-            print(f"{song_name} NOT FOUND")
+            print(f"\t {song_name} NOT FOUND")
         else:
             # Get bit rate        
             url = audio_info["url"]
