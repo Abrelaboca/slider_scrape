@@ -2,10 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import ast
 import os
-import urllib
-from progress.bar import Bar
-import re
 import time
+import urllib
 
 def get_download_data(song_name):
 
@@ -48,9 +46,10 @@ def get_song_download_links(song):
 
             #if can_get_bitrate:
             try:
-                #size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]
-                tic = time.perf_counter()                           
-                size = requests.head(url).headers["Content-Length"]
+                
+                tic = time.perf_counter()            
+                size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]               
+                #size = requests.head(url).headers["Content-Length"]
                 toc = time.perf_counter()
                 print(f"Fetched bitrate in {toc - tic:0.2f} seconds")
                 bitrate = (int(size)/1000)/length*8
@@ -59,8 +58,6 @@ def get_song_download_links(song):
             except Exception as e:
                 print(f"\t Couldn't get bitrate of {name}")
                 #can_get_bitrate = False
-                bitrate = None
-            else:
                 bitrate = None
 
             download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
@@ -106,7 +103,7 @@ def get_song_names(user):
 
 if __name__ == "__main__":
 
-    likes_to_download = 'likes.txt'
+    likes_to_download = 'likes_bowser.txt'
 
     #Read the contents of the file and load them into a list
     with open(likes_to_download, 'r', encoding='utf-8') as file:
@@ -135,7 +132,7 @@ if __name__ == "__main__":
         for string in strings_to_replace:
             if string in song:
                 song = song.replace(string,"")
-                #print(f"Replaced {string} {song}")
+                print(f"Replaced {string} {song}")
     
         song_file_clean.append(song)
 
@@ -150,9 +147,10 @@ if __name__ == "__main__":
     print("Obtaining download links")
     n = len(song_file_clean)
     i = 1
-    #with Bar('Processing...') as bar:
+
     for song in song_list:
         tic = time.perf_counter()
+        # Join user again for retrying in download
         download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)     
         toc = time.perf_counter()
         print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
@@ -160,55 +158,56 @@ if __name__ == "__main__":
         i = i +1
 
     # Write the dictionary as a string to a file
-    with open(f'{likes_to_download.replace(".txt","")}_download_links.txt', 'w', encoding='utf-8') as file:
+    links_file_name = f'{likes_to_download.replace(".txt","")}_download_links.txt'
+    with open(links_file_name, 'w', encoding='utf-8') as file:
         file.write(str(download_links))
-        print(f'Dictionary written to {likes_to_download}_download_links.txt')
+        print(f'Dictionary written to {links_file_name}')
     
     os.system("shutdown.exe /h")
 
-    # Open the file in read mode with utf-8 encoding
-    with open('download_links.txt', 'r', encoding='utf-8') as file:
-        content = file.read()
+    # # Open the file in read mode with utf-8 encoding
+    # with open(links_file_name, 'r', encoding='utf-8') as file:
+    #     content = file.read()
 
-    # Use ast.literal_eval() to safely convert the content back to a dictionary
-    try:
-        loaded_data = ast.literal_eval(content)
-        print("Dictionary loaded successfully.")
-    except (ValueError, SyntaxError):
-        print("Error loading the dictionary from the file.")
+    # # Use ast.literal_eval() to safely convert the content back to a dictionary
+    # try:
+    #     loaded_data = ast.literal_eval(content)
+    #     print("Dictionary loaded successfully.")
+    # except (ValueError, SyntaxError):
+    #     print("Error loading the dictionary from the file.")
 
-    # Now you can work with the loaded_data dictionary
-    for key, value in loaded_data.items():
+    # # Now you can work with the loaded_data dictionary
+    # for key, value in loaded_data.items():
 
-        if len(value) == 0:
-            print(f"{key} was not found")
-            print()
+    #     if len(value) == 0:
+    #         print(f"{key} was not found")
+    #         print()
 
-        elif len(value) == 1:
-            song_name = value[0][0]
-            song_download_link = value[0][1]
-            download_song(song_name, song_download_link)
+    #     elif len(value) == 1:
+    #         song_name = value[0][0]
+    #         song_download_link = value[0][1]
+    #         download_song(song_name, song_download_link)
 
-        elif len(value) > 1:
-            print(f"{key} has multiple links") #"Has multiple links"
+    #     elif len(value) > 1:
+    #         print(f"{key} has multiple links") #"Has multiple links"
 
-            for i, (description, link) in enumerate(value, start=1):
-                print(f"{i}. {description}")
-                # Prompt the user to select a link
-            while True:
-                try:
-                    choice = int(input("Enter the number of the link you want to download (0 to skip): "))
-                    if choice == 0:
-                        break
-                    elif 1 <= choice <= len(value):
-                        song_name = value[choice - 1][0]
-                        song_download_link = value[choice - 1][1]                        
-                        download_song(song_name, song_download_link)
-                        break
-                    else:
-                        print("Invalid choice. Please enter a valid number.")
-                except ValueError:
-                    print("Invalid input. Please enter a number.")
+    #         for i, (description, link) in enumerate(value, start=1):
+    #             print(f"{i}. {description}")
+    #             # Prompt the user to select a link
+    #         while True:
+    #             try:
+    #                 choice = int(input("Enter the number of the link you want to download (0 to skip): "))
+    #                 if choice == 0:
+    #                     break
+    #                 elif 1 <= choice <= len(value):
+    #                     song_name = value[choice - 1][0]
+    #                     song_download_link = value[choice - 1][1]                        
+    #                     download_song(song_name, song_download_link)
+    #                     break
+    #                 else:
+    #                     print("Invalid choice. Please enter a valid number.")
+    #             except ValueError:
+    #                 print("Invalid input. Please enter a number.")
 
-            print()  # Empty line for readability
+    #         print()  # Empty line for readability
 
