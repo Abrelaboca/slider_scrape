@@ -20,7 +20,7 @@ def get_song_download_links(song):
     song_name = song["name"]
     song_user = song["user"]
 
-    can_get_bitrate = True
+    #can_get_bitrate = True
 
     data = get_download_data(song_name)
     #Try to add user if song name didn't return any results
@@ -43,18 +43,18 @@ def get_song_download_links(song):
             if 'https' not in url:
                 url = "https://slider.kz/" + url
 
-            if can_get_bitrate:
-                try:
-                    size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]
-                    bitrate = (int(size)/1000)/length*8
-                    bitrate = round(bitrate,0)
-                    bitrate = int(bitrate)
-                except Exception as e:
-                    print(f"\t Couldn't get bitrate of {song_name}")
-                    can_get_bitrate = False
-                    bitrate = None
-            else:
+            #if can_get_bitrate:
+            try:
+                size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]
+                bitrate = (int(size)/1000)/length*8
+                bitrate = round(bitrate,0)
+                bitrate = int(bitrate)
+            except Exception as e:
+                print(f"\t Couldn't get bitrate of {song_name}")
+                #can_get_bitrate = False
                 bitrate = None
+            # else:
+            #     bitrate = None
 
             download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
 
@@ -106,14 +106,31 @@ if __name__ == "__main__":
         song_file = file.read().splitlines()
     
     song_file_clean = []
-    strings_to_replace = ["!", "YA A LA VENTA", "[", "]", "Free DL", "Free Download", "OUT NOW", "BEATPORT", "Ya disponible"]
+    strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"',
+                          "[YA A LA VENTA]", "YA A LA VENTA",  
+                          "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
+                          "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
+                          "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", 
+                          "Free DL", "Free Download", "FREE DOWNLOAD", "FREE DL",
+                          "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", 
+                          "[PREMIERE]",
+                          "BEATPORT", "BANDCAMP", 
+                          "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
+                          "ON",
+                          "[","]"
+                          ]
 
-    for song in song_file.copy():        
+    for song in song_file.copy():   
+
+        # Remove emojis
+        song = song.encode('ascii', 'ignore').decode('ascii')     
         # Remove unnecesary strings
         for string in strings_to_replace:
-            song = song.replace(string,"")
-        # Remove emojis
-        song_file_clean.append(song.encode('ascii', 'ignore').decode('ascii'))
+            if string in song:
+                song = song.replace(string,"")
+                #print(f"Replaced {string} {song}")
+    
+        song_file_clean.append(song)
 
     # Separate user which uploaded from song name
     song_list = []
@@ -129,7 +146,7 @@ if __name__ == "__main__":
             download_links[song["name"]] = get_song_download_links(song)
             bar.next()
 
-    # Open the file in write mode and write the dictionary as a string
+    # Write the dictionary as a string to a file
     with open(f'{likes_to_download}_download_links.txt', 'w', encoding='utf-8') as file:
         file.write(str(download_links))
         print(f'Dictionary written to {likes_to_download}_download_links.txt')
