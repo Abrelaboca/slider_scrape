@@ -50,7 +50,7 @@ def get_song_download_links(song):
                 bitrate = round(bitrate,0)
                 bitrate = int(bitrate)
             except Exception as e:
-                print(f"\t Couldn't get bitrate of {song_name}")
+                print(f"\t Couldn't get bitrate of {name}")
                 #can_get_bitrate = False
                 bitrate = None
             # else:
@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     # Separate user which uploaded from song name
     song_list = []
-    for song in song_file:
+    for song in song_file_clean:
         user = song.split(",")[0]
         song_name = song.split(",")[1].replace('!', "")
         song_list.append({"user" : user, "name" : song_name})
