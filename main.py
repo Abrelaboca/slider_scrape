@@ -5,6 +5,7 @@ import os
 import urllib
 from progress.bar import Bar
 import re
+import time
 
 def get_download_data(song_name):
 
@@ -26,11 +27,13 @@ def get_song_download_links(song):
     #Try to add user if song name didn't return any results
     for audio_info in data["audios"][""]:
         if len(audio_info) == 0:
-            if song_user not in song_name:
-                data = get_download_data(song_user + " " + song_name)
+            #if song_user not in song_name:
+            data = get_download_data(song_user + " " + song_name)
 
     download_links = []
-    for audio_info in data["audios"][""]:
+    slice = data["audios"][""][0:10]
+    
+    for audio_info in slice:
         # No results even with user
         if len(audio_info) == 0:
             print(f"\t {song_name} NOT FOUND")
@@ -45,7 +48,11 @@ def get_song_download_links(song):
 
             #if can_get_bitrate:
             try:
-                size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]
+                #size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]
+                tic = time.perf_counter()                           
+                size = requests.head(url).headers["Content-Length"]
+                toc = time.perf_counter()
+                print(f"Fetched bitrate in {toc - tic:0.2f} seconds")
                 bitrate = (int(size)/1000)/length*8
                 bitrate = round(bitrate,0)
                 bitrate = int(bitrate)
@@ -53,8 +60,8 @@ def get_song_download_links(song):
                 print(f"\t Couldn't get bitrate of {name}")
                 #can_get_bitrate = False
                 bitrate = None
-            # else:
-            #     bitrate = None
+            else:
+                bitrate = None
 
             download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
 
@@ -110,7 +117,7 @@ if __name__ == "__main__":
                           "[YA A LA VENTA]", "YA A LA VENTA",  
                           "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
                           "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
-                          "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", 
+                          "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", "(Free Download)", 
                           "Free DL", "Free Download", "FREE DOWNLOAD", "FREE DL",
                           "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", 
                           "[PREMIERE]",
@@ -141,15 +148,23 @@ if __name__ == "__main__":
 
     download_links = {}
     print("Obtaining download links")
-    with Bar('Processing...') as bar:
-        for song in song_list:
-            download_links[song["name"]] = get_song_download_links(song)
-            bar.next()
+    n = len(song_file_clean)
+    i = 1
+    #with Bar('Processing...') as bar:
+    for song in song_list:
+        tic = time.perf_counter()
+        download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)     
+        toc = time.perf_counter()
+        print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
+        print(f"Progress {i}/{n}")
+        i = i +1
 
     # Write the dictionary as a string to a file
-    with open(f'{likes_to_download}_download_links.txt', 'w', encoding='utf-8') as file:
+    with open(f'{likes_to_download.replace(".txt","")}_download_links.txt', 'w', encoding='utf-8') as file:
         file.write(str(download_links))
         print(f'Dictionary written to {likes_to_download}_download_links.txt')
+    
+    os.system("shutdown.exe /h")
 
     # Open the file in read mode with utf-8 encoding
     with open('download_links.txt', 'r', encoding='utf-8') as file:
