@@ -114,6 +114,36 @@ def int_to_min_seconds(seconds):
 
     return time_string
 
+def load_txt_from_file(filename):
+    #Read the contents of the file and load them into a list
+    with open(filename, 'r', encoding='utf-8') as file:
+        dict = file.read().splitlines()
+    return dict
+
+def save_dict_to_file(filename, dict):
+
+    # Write the dictionary as a string to a file    
+    with open(filename, 'w', encoding='utf-8') as file:
+        file.write(str(dict))
+        print(f'Dictionary written to {filename}')
+
+def load_dict_from_file(filename):
+    # Open the file in read mode with utf-8 encoding
+    with open(filename, 'r', encoding='utf-8') as file:
+        content = file.read()
+
+    # Use ast.literal_eval() to safely convert the content back to a dictionary
+    try:
+        loaded_data = ast.literal_eval(content)
+        dictionary_string_print = f"Dictionary loaded successfully."
+        print(dictionary_string_print)
+        print("-" * len(dictionary_string_print))
+    except (ValueError, SyntaxError):
+        print("Error loading the dictionary from the file.")
+    
+    return loaded_data
+    
+
 if __name__ == "__main__":
 
     likes_to_download = 'likes_bowser.txt'
@@ -123,8 +153,7 @@ if __name__ == "__main__":
     if not os.path.isfile(links_file_name):
 
         #Read the contents of the file and load them into a list
-        with open(likes_to_download, 'r', encoding='utf-8') as file:
-            song_file = file.read().splitlines()
+        song_file = load_txt_from_file(likes_to_download)
         
         # Clean up song names
         song_file_clean = []
@@ -175,24 +204,11 @@ if __name__ == "__main__":
             i = i +1
 
         # Write the dictionary as a string to a file    
-        with open(links_file_name, 'w', encoding='utf-8') as file:
-            file.write(str(download_links))
-            print(f'Dictionary written to {links_file_name}')
+        save_dict_to_file(links_file_name, download_links)
     
     else:
-        # Open the file in read mode with utf-8 encoding
-        with open(links_file_name, 'r', encoding='utf-8') as file:
-            content = file.read()
 
-        # Use ast.literal_eval() to safely convert the content back to a dictionary
-        try:
-            loaded_data = ast.literal_eval(content)
-            dictionary_string_print = f"{likes_to_download} Dictionary loaded successfully."
-            print()
-            print(dictionary_string_print)
-            print("-" * len(dictionary_string_print))
-        except (ValueError, SyntaxError):
-            print("Error loading the dictionary from the file.")
+        loaded_data = load_dict_from_file(links_file_name)
 
         # Now you can work with the loaded_data dictionary
         for song, links in loaded_data.items():
@@ -224,11 +240,13 @@ if __name__ == "__main__":
                     try:
                         link_index = int(input("Enter the number of the link you want to download (0 to skip): "))
                         if link_index == 0:
+                            loaded_data[song].append({'downloaded': False})
                             break
                         elif 1 <= link_index <= len(links):
                             song_name = links[link_index - 1][0]
                             song_download_link = links[link_index - 1][1]                        
                             download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                            loaded_data[song].append({'downloaded': song_name})
                             break
                         else:
                             print("Invalid choice. Please enter a valid number.")
