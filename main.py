@@ -64,7 +64,7 @@ def get_song_download_links(song):
 
     return download_links
 
-def download_song(file_name, download_link):
+def download_song(file_name, download_link, path):
 
     if 'https' not in download_link:
         download_link = "https://slider.kz/" + download_link
@@ -74,9 +74,12 @@ def download_song(file_name, download_link):
     if not os.path.exists("songs"):
         os.mkdir("songs")
     
-    if not os.path.isfile(f"songs/{file_name}.mp3"):
+    if not os.path.exists(f"songs/{path}"):
+        os.mkdir(f"songs/{path}")
+    
+    if not os.path.isfile(f"songs/{path}/{file_name}.mp3"):
 
-        with open(f"songs/{file_name}.mp3", "wb") as f:
+        with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
             f.write(response.content)
 
         print(f"Downloaded {song_name}")
@@ -208,8 +211,8 @@ if __name__ == "__main__":
 
             elif len(links) >= 1:
                 
-                print(song)
-                print("-" * len(song))
+                print(song_user + " " + song_name)
+                print("-" * len(song_user + " " + song_name))
 
                 for i, links_data in enumerate(links, start=1):
                     if i != 10:
@@ -219,13 +222,13 @@ if __name__ == "__main__":
 
                 while True:
                     try:
-                        choice = int(input("Enter the number of the link you want to download (0 to skip): "))
-                        if choice == 0:
+                        link_index = int(input("Enter the number of the link you want to download (0 to skip): "))
+                        if link_index == 0:
                             break
-                        elif 1 <= choice <= len(links):
-                            song_name = links[choice - 1][0]
-                            song_download_link = links[choice - 1][1]                        
-                            download_song(song_name, song_download_link)
+                        elif 1 <= link_index <= len(links):
+                            song_name = links[link_index - 1][0]
+                            song_download_link = links[link_index - 1][1]                        
+                            download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
                             break
                         else:
                             print("Invalid choice. Please enter a valid number.")
