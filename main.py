@@ -60,16 +60,11 @@ def get_song_download_links(song):
                 #can_get_bitrate = False
                 bitrate = None
 
-            download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
+            download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate})
 
     return download_links
 
 def download_song(file_name, download_link, path):
-
-    if 'https' not in download_link:
-        download_link = "https://slider.kz/" + download_link
-
-    response = requests.get(download_link)
 
     if not os.path.exists("songs"):
         os.mkdir("songs")
@@ -78,6 +73,11 @@ def download_song(file_name, download_link, path):
         os.mkdir(f"songs/{path}")
     
     if not os.path.isfile(f"songs/{path}/{file_name}.mp3"):
+
+        if 'https' not in download_link:
+            download_link = "https://slider.kz/" + download_link
+
+        response = requests.get(download_link)
 
         with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
             f.write(response.content)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         for song in song_list:
             tic = time.perf_counter()
             # Join user again for retrying in download
-            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)     
+            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song).append({'downloaded': False})
             toc = time.perf_counter()
             print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
             print(f"Progress {i}/{n}")
@@ -210,11 +210,33 @@ if __name__ == "__main__":
 
         loaded_data = load_dict_from_file(links_file_name)
 
+        # Quick reformat
+        # changes_made = False
+        # for song, links in loaded_data.items():
+
+        #     for link in links[0:10]:
+        #         if "downloaded" in link:
+        #             link.pop("downloaded")
+        #             changes_made = True
+            
+        #     if "downloaded" not in links:
+        #         loaded_data[song].append({"downloaded" : False})
+        #         changes_made = True
+
+        # if changes_made:
+        #     save_dict_to_file(links_file_name, loaded_data)
+
         # Now you can work with the loaded_data dictionary
         for song, links in loaded_data.items():
 
             song_user = song.split(",")[0]
             song_name = song.split(",")[1]
+
+            if 'downloaded' in links[-1] and links[-1]['downloaded'] != False:
+                temp_string = f"{song_name} already downloaded as {links[-1]['downloaded']}"
+                print(temp_string)
+                print("-" * len(temp_string))
+                continue
 
             if len(links) == 0:
                 print(f"{song_name} was not found")
@@ -231,22 +253,22 @@ if __name__ == "__main__":
                 print("-" * len(song_user + " " + song_name))
 
                 for i, links_data in enumerate(links, start=1):
-                    if i != 10:
+                    if i < 10:
                         print(f"{i}. {links_data['name']:<75} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
-                    else:
+                    elif i == 10:
                         print(f"{i}. {links_data['name']:<74} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
 
                 while True:
                     try:
                         link_index = int(input("Enter the number of the link you want to download (0 to skip): "))
                         if link_index == 0:
-                            loaded_data[song].append({'downloaded': False})
                             break
                         elif 1 <= link_index <= len(links):
-                            song_name = links[link_index - 1][0]
-                            song_download_link = links[link_index - 1][1]                        
+                            song_name = links[link_index - 1]["name"]
+                            song_download_link = links[link_index - 1]["url"]
                             download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
-                            loaded_data[song].append({'downloaded': song_name})
+                            loaded_data[song][-1]["downloaded"] = song_name
+                            save_dict_to_file(links_file_name, loaded_data)
                             break
                         else:
                             print("Invalid choice. Please enter a valid number.")
