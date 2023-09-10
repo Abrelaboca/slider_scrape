@@ -101,113 +101,135 @@ def get_song_names(user):
     
     return song_names
 
+def int_to_min_seconds(seconds):
+    # Calculate minutes and remaining seconds
+    minutes = seconds // 60
+    remaining_seconds = seconds % 60
+
+    # Format the result as a string
+    time_string = f"{minutes:02}:{remaining_seconds:02}"
+
+    return time_string
+
 if __name__ == "__main__":
 
     likes_to_download = 'likes_bowser.txt'
-
-    #Read the contents of the file and load them into a list
-    with open(likes_to_download, 'r', encoding='utf-8') as file:
-        song_file = file.read().splitlines()
-    
-    song_file_clean = []
-    strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"',
-                          "[YA A LA VENTA]", "YA A LA VENTA",  
-                          "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
-                          "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
-                          "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", "(Free Download)", 
-                          "Free DL", "Free Download", "FREE DOWNLOAD", "FREE DL",
-                          "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", 
-                          "[PREMIERE]",
-                          "BEATPORT", "BANDCAMP", 
-                          "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
-                          "ON",
-                          "[","]"
-                          ]
-
-    for song in song_file.copy():   
-
-        # Remove emojis
-        song = song.encode('ascii', 'ignore').decode('ascii')     
-        # Remove unnecesary strings
-        for string in strings_to_replace:
-            if string in song:
-                song = song.replace(string,"")
-                print(f"Replaced {string} {song}")
-    
-        song_file_clean.append(song)
-
-    # Separate user which uploaded from song name
-    song_list = []
-    for song in song_file_clean:
-        user = song.split(",")[0]
-        song_name = song.split(",")[1].replace('!', "")
-        song_list.append({"user" : user, "name" : song_name})
-
-    download_links = {}
-    print("Obtaining download links")
-    n = len(song_file_clean)
-    i = 1
-
-    for song in song_list:
-        tic = time.perf_counter()
-        # Join user again for retrying in download
-        download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)     
-        toc = time.perf_counter()
-        print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
-        print(f"Progress {i}/{n}")
-        i = i +1
-
-    # Write the dictionary as a string to a file
     links_file_name = f'{likes_to_download.replace(".txt","")}_download_links.txt'
-    with open(links_file_name, 'w', encoding='utf-8') as file:
-        file.write(str(download_links))
-        print(f'Dictionary written to {links_file_name}')
+
+    # If download links file doesn't exist fetch songs
+    if not os.path.isfile(links_file_name):
+
+        #Read the contents of the file and load them into a list
+        with open(likes_to_download, 'r', encoding='utf-8') as file:
+            song_file = file.read().splitlines()
+        
+        # Clean up song names
+        song_file_clean = []
+        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"',
+                            "[YA A LA VENTA]", "YA A LA VENTA",  
+                            "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
+                            "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
+                            "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", "(Free Download)", 
+                            "Free DL", "Free Download", "FREE DOWNLOAD", "FREE DL",
+                            "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", 
+                            "[PREMIERE]",
+                            "BEATPORT", "BANDCAMP", 
+                            "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
+                            "ON",
+                            "[","]"
+                            ]
+        for song in song_file.copy():   
+
+            # Remove emojis
+            song = song.encode('ascii', 'ignore').decode('ascii')     
+            # Remove unnecesary strings
+            for string in strings_to_replace:
+                if string in song:
+                    song = song.replace(string,"")
+                    print(f"Replaced {string} {song}")
+        
+            song_file_clean.append(song)
+
+        # Separate user which uploaded from song name
+        song_list = []
+        for song in song_file_clean:
+            user = song.split(",")[0]
+            song_name = song.split(",")[1].replace('!', "")
+            song_list.append({"user" : user, "name" : song_name})
+
+        # Fetch download links
+        download_links = {}
+        print("Obtaining download links")
+        n = len(song_file_clean)
+        i = 1
+        for song in song_list:
+            tic = time.perf_counter()
+            # Join user again for retrying in download
+            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)     
+            toc = time.perf_counter()
+            print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
+            print(f"Progress {i}/{n}")
+            i = i +1
+
+        # Write the dictionary as a string to a file    
+        with open(links_file_name, 'w', encoding='utf-8') as file:
+            file.write(str(download_links))
+            print(f'Dictionary written to {links_file_name}')
     
-    os.system("shutdown.exe /h")
+    else:
+        # Open the file in read mode with utf-8 encoding
+        with open(links_file_name, 'r', encoding='utf-8') as file:
+            content = file.read()
 
-    # # Open the file in read mode with utf-8 encoding
-    # with open(links_file_name, 'r', encoding='utf-8') as file:
-    #     content = file.read()
+        # Use ast.literal_eval() to safely convert the content back to a dictionary
+        try:
+            loaded_data = ast.literal_eval(content)
+            dictionary_string_print = f"{likes_to_download} Dictionary loaded successfully."
+            print()
+            print(dictionary_string_print)
+            print("-" * len(dictionary_string_print))
+        except (ValueError, SyntaxError):
+            print("Error loading the dictionary from the file.")
 
-    # # Use ast.literal_eval() to safely convert the content back to a dictionary
-    # try:
-    #     loaded_data = ast.literal_eval(content)
-    #     print("Dictionary loaded successfully.")
-    # except (ValueError, SyntaxError):
-    #     print("Error loading the dictionary from the file.")
+        # Now you can work with the loaded_data dictionary
+        for song, links in loaded_data.items():
 
-    # # Now you can work with the loaded_data dictionary
-    # for key, value in loaded_data.items():
+            song_user = song.split(",")[0]
+            song_name = song.split(",")[1]
 
-    #     if len(value) == 0:
-    #         print(f"{key} was not found")
-    #         print()
+            if len(links) == 0:
+                print(f"{song_name} was not found")
+                print()
 
-    #     elif len(value) == 1:
-    #         song_name = value[0][0]
-    #         song_download_link = value[0][1]
-    #         download_song(song_name, song_download_link)
+            # elif len(value) == 1:
+            #     song_name = value[0][0]
+            #     song_download_link = value[0][1]
+            #     download_song(song_name, song_download_link)
 
-    #     elif len(value) > 1:
-    #         print(f"{key} has multiple links") #"Has multiple links"
+            elif len(links) >= 1:
+                
+                print(song)
+                print("-" * len(song))
 
-    #         for i, (description, link) in enumerate(value, start=1):
-    #             print(f"{i}. {description}")
-    #             # Prompt the user to select a link
-    #         while True:
-    #             try:
-    #                 choice = int(input("Enter the number of the link you want to download (0 to skip): "))
-    #                 if choice == 0:
-    #                     break
-    #                 elif 1 <= choice <= len(value):
-    #                     song_name = value[choice - 1][0]
-    #                     song_download_link = value[choice - 1][1]                        
-    #                     download_song(song_name, song_download_link)
-    #                     break
-    #                 else:
-    #                     print("Invalid choice. Please enter a valid number.")
-    #             except ValueError:
-    #                 print("Invalid input. Please enter a number.")
+                for i, links_data in enumerate(links, start=1):
+                    if i != 10:
+                        print(f"{i}. {links_data['name']:<75} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+                    else:
+                        print(f"{i}. {links_data['name']:<74} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
 
-    #         print()  # Empty line for readability
+                while True:
+                    try:
+                        choice = int(input("Enter the number of the link you want to download (0 to skip): "))
+                        if choice == 0:
+                            break
+                        elif 1 <= choice <= len(links):
+                            song_name = links[choice - 1][0]
+                            song_download_link = links[choice - 1][1]                        
+                            download_song(song_name, song_download_link)
+                            break
+                        else:
+                            print("Invalid choice. Please enter a valid number.")
+                    except ValueError:
+                        print("Invalid input. Please enter a number.")
 
+                print()  # Empty line for readability
