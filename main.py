@@ -26,7 +26,8 @@ def get_song_download_links(song):
     song_name = song["name"]
     song_user = song["user"]
 
-    #can_get_bitrate = True
+    if '-' not in song_name:
+        song_name = song_user + " " + song_name
 
     data = get_download_data(song_name)
     #Try to add user if song name didn't return any results
