@@ -4,13 +4,20 @@ import ast
 import os
 import time
 import urllib
+import aiohttp
+import asyncio
+import sys
+import emoji
 
 def get_download_data(song_name):
+
+    #song_name = song_name.replace("&","%26")
 
     search_url = f"https://slider.kz/vk_auth.php?q={song_name.replace(' ', '%20')}"
     headers = {
         "Referer": "https://slider.kz/"
     }
+    print("SEARCH URL: " + search_url)
     response = requests.get(search_url, headers=headers)
     return response.json()
 
@@ -60,7 +67,7 @@ def get_song_download_links(song):
                 #can_get_bitrate = False
                 bitrate = None
 
-            download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate})
+            download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
 
     return download_links
 
@@ -82,10 +89,10 @@ def download_song(file_name, download_link, path):
         with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
             f.write(response.content)
 
-        print(f"Downloaded {song_name}")
+        print(f"Downloaded {file_name}")
         print()
     else:
-        print(f"{song_name} already downloaded")
+        print(f"{file_name} already downloaded")
         print()
 
 def get_song_names(user):
@@ -117,8 +124,8 @@ def int_to_min_seconds(seconds):
 def load_txt_from_file(filename):
     #Read the contents of the file and load them into a list
     with open(filename, 'r', encoding='utf-8') as file:
-        dict = file.read().splitlines()
-    return dict
+        txt = file.read().splitlines()
+    return txt
 
 def save_dict_to_file(filename, dict):
 
@@ -142,11 +149,44 @@ def load_dict_from_file(filename):
         print("Error loading the dictionary from the file.")
     
     return loaded_data
-    
 
-if __name__ == "__main__":
+async def download_song_async(file_name, download_link, path):
+    if not os.path.exists("songs"):
+        os.mkdir("songs")
 
-    likes_to_download = 'likes_bowser.txt'
+    if not os.path.exists(f"songs/{path}"):
+        os.mkdir(f"songs/{path}")
+
+    if not os.path.isfile(f"songs/{path}/{file_name}.mp3"):
+        if 'https' not in download_link:
+            download_link = "https://slider.kz/" + download_link
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(download_link) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
+                        f.write(content)
+                    print(f"Downloaded {file_name}")
+                    print()
+                else:
+                    print(f"Failed to download {file_name}. Status code: {response.status}")
+    else:
+        print(f"{file_name} already downloaded")
+        print()
+
+async def main():
+
+    # name = "Freestylers & MC Spyda - My Sound (TOMY RMX)"
+    # user = "TOMY"
+    # song = {"name":name, "user":user}
+    # d_data = get_download_data(name)["audios"][""]
+
+    # for link in d_data:
+    #     print(link["tit_art"])
+    # print(len(d_data))
+
+    likes_to_download = 'likes.txt'
     links_file_name = f'{likes_to_download.replace(".txt","")}_download_links.txt'
 
     # If download links file doesn't exist fetch songs
@@ -157,7 +197,7 @@ if __name__ == "__main__":
         
         # Clean up song names
         song_file_clean = []
-        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"',
+        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&',
                             "[YA A LA VENTA]", "YA A LA VENTA",  
                             "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
                             "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
@@ -171,16 +211,20 @@ if __name__ == "__main__":
                             "[","]"
                             ]
         for song in song_file.copy():   
-
             # Remove emojis
-            song = song.encode('ascii', 'ignore').decode('ascii')     
-            # Remove unnecesary strings
+            #song = song.encode('ascii', 'ignore').decode('ascii')     
+            song = ''.join(c for c in song if c not in emoji.EMOJI_DATA)
             for string in strings_to_replace:
                 if string in song:
                     song = song.replace(string,"")
                     print(f"Replaced {string} {song}")
         
             song_file_clean.append(song)
+        
+        # Open the file in write mode and write the list to it
+        # with open("cleanup.txt", "w") as file:
+        #     for item in song_file_clean:
+        #         file.write(item + "\n")
 
         # Separate user which uploaded from song name
         song_list = []
@@ -197,7 +241,7 @@ if __name__ == "__main__":
         for song in song_list:
             tic = time.perf_counter()
             # Join user again for retrying in download
-            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song).append({'downloaded': False})
+            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)
             toc = time.perf_counter()
             print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
             print(f"Progress {i}/{n}")
@@ -249,14 +293,14 @@ if __name__ == "__main__":
 
             elif len(links) >= 1:
                 
-                print(song_user + " " + song_name)
+                print(song_user + ", " + song_name)
                 print("-" * len(song_user + " " + song_name))
 
                 for i, links_data in enumerate(links, start=1):
                     if i < 10:
-                        print(f"{i}. {links_data['name']:<75} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+                        print(f"{i}. {links_data['name']:<99} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
                     elif i == 10:
-                        print(f"{i}. {links_data['name']:<74} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+                        print(f"{i}. {links_data['name']:<98} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
 
                 while True:
                     try:
@@ -266,7 +310,8 @@ if __name__ == "__main__":
                         elif 1 <= link_index <= len(links):
                             song_name = links[link_index - 1]["name"]
                             song_download_link = links[link_index - 1]["url"]
-                            download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                            await download_song_async(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                            #download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
                             loaded_data[song][-1]["downloaded"] = song_name
                             save_dict_to_file(links_file_name, loaded_data)
                             break
@@ -276,3 +321,6 @@ if __name__ == "__main__":
                         print("Invalid input. Please enter a number.")
 
                 print()  # Empty line for readability
+
+if __name__ == "__main__":
+    asyncio.run(main())
