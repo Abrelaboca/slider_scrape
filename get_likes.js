@@ -24,7 +24,7 @@ var outputLikes = function() {
 			var track = $(this).find(".playableTile__descriptionContainer a").first();
 			var trackTitle = $.trim(track.text());
 			var trackUrl = track[0].href;
-			var record = '"' + $.trim(user) + " " + trackTitle + '"' + ",";
+			var record = $.trim(user) + "," + trackTitle;
 			results.push(record);
 		});
 	console.log(results.join('\n'));
