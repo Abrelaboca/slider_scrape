@@ -147,11 +147,15 @@ def load_dict_from_file(filename):
         print(dictionary_string_print)
         print("-" * len(dictionary_string_print))
     except (ValueError, SyntaxError):
+        loaded_data = None
         print("Error loading the dictionary from the file.")
     
     return loaded_data
 
 async def download_song_async(file_name, download_link, path):
+
+    file_name = file_name.replace('?','').replace('>','')
+
     if not os.path.exists("songs"):
         os.mkdir("songs")
 
@@ -199,6 +203,7 @@ async def main():
         # Clean up song names
         song_file_clean = []
         strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&',
+        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&', '#', '@'
                             "[YA A LA VENTA]", "YA A LA VENTA",  
                             "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
                             "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
@@ -210,10 +215,11 @@ async def main():
                             "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
                             "ON",
                             "[","]"
+                            "[","]", "     ", "    ", "   ", "  "
                             ]
+        
         for song in song_file.copy():   
-            # Remove emojis
-            #song = song.encode('ascii', 'ignore').decode('ascii')     
+            # Remove emojis and strings
             song = ''.join(c for c in song if c not in emoji.EMOJI_DATA)
             for string in strings_to_replace:
                 if string in song:
@@ -246,7 +252,12 @@ async def main():
             toc = time.perf_counter()
             print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
             print(f"Progress {i}/{n}")
+            print("-"*50)
             i = i +1
+
+            # Save every 5 songs
+            if i % 5 == 0:
+                save_dict_to_file(links_file_name, download_links)
 
         # Write the dictionary as a string to a file    
         save_dict_to_file(links_file_name, download_links)
@@ -270,7 +281,7 @@ async def main():
 
         # if changes_made:
         #     save_dict_to_file(links_file_name, loaded_data)
-
+        
         # Now you can work with the loaded_data dictionary
         for song, links in loaded_data.items():
 
