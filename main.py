@@ -8,6 +8,8 @@ import aiohttp
 import asyncio
 import sys
 import emoji
+import concurrent.futures
+import threading
 
 def get_download_data(song_name):
 
@@ -17,7 +19,7 @@ def get_download_data(song_name):
     headers = {
         "Referer": "https://slider.kz/"
     }
-    print("SEARCH URL: " + search_url)
+    #print("SEARCH URL: " + search_url)
     response = requests.get(search_url, headers=headers)
     return response.json()
 
@@ -52,22 +54,20 @@ def get_song_download_links(song):
             if 'https' not in url:
                 url = "https://slider.kz/" + url
 
-            #if can_get_bitrate:
-            try:
-                
-                tic = time.perf_counter()            
+            tic = time.perf_counter()
+            try:                                    
                 size = urllib.request.urlopen(url.replace(" ", "%20")).info()["Content-Length"]               
                 #size = requests.head(url).headers["Content-Length"]
-                toc = time.perf_counter()
-                print(f"Fetched bitrate in {toc - tic:0.2f} seconds")
                 bitrate = (int(size)/1000)/length*8
                 bitrate = round(bitrate,0)
                 bitrate = int(bitrate)
             except Exception as e:
-                print(f"\t Couldn't get bitrate of {name}")
+                #print(f"\t Couldn't get bitrate of {name}")
                 #can_get_bitrate = False
                 bitrate = None
 
+            toc = time.perf_counter()
+            print(f"Fetched {name} in {toc - tic:0.2f}s")
             download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
 
     return download_links
@@ -133,7 +133,7 @@ def save_dict_to_file(filename, dict):
     # Write the dictionary as a string to a file    
     with open(filename, 'w', encoding='utf-8') as file:
         file.write(str(dict))
-        print(f'Dictionary written to {filename}')
+        #print(f'Dictionary written to {filename}')
 
 def load_dict_from_file(filename):
     # Open the file in read mode with utf-8 encoding
@@ -165,34 +165,99 @@ async def download_song_async(file_name, download_link, path):
     if not os.path.isfile(f"songs/{path}/{file_name}.mp3"):
         if 'https' not in download_link:
             download_link = "https://slider.kz/" + download_link
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(download_link) as response:
+                    if response.status == 200:
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(download_link) as response:
-                if response.status == 200:
-                    content = await response.read()
-                    with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
-                        f.write(content)
-                    print(f"Downloaded {file_name}")
-                    print()
-                else:
-                    print(f"Failed to download {file_name}. Status code: {response.status}")
+                        content = await response.read()
+
+                        with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
+                            f.write(content)
+
+                        temp_string = f"Downloaded {file_name}"
+                        pretty_print(temp_string)
+                    else:
+                        temp_string = f"Failed to download {file_name}. Status code: {response.status}"
+                        pretty_print(temp_string)
+                        return False
+        except Exception as e:
+            temp_string = f"Error while trying to download {file_name}: {e}"
+            pretty_print(temp_string)
+            return False
     else:
-        print(f"{file_name} already downloaded")
-        print()
+        temp_string = f"{file_name} already downloaded"
+        pretty_print(temp_string)
+    
+    return True
+
+def get_all_songs(directory, all_songs=None):
+
+    if all_songs is None:
+        all_songs = []
+
+    try:
+        # List all files and subdirectories in the current directory
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+
+            # Check if the item is a file
+            if os.path.isfile(item_path):
+                all_songs.append(item.replace(".mp3", ""))
+
+            # If the item is a directory, recursively process it
+            elif os.path.isdir(item_path):
+                all_songs = get_all_songs(item_path, all_songs)
+
+    except Exception as e:
+        print(f"An error occurred while fetching all songs: {e}")
+
+    return all_songs
+
+def pretty_print(string):
+    print(string)
+    print("-"*len(string))
+
+def get_all_songs_path(directory, all_songs=None):
+
+    if all_songs is None:
+        all_songs = []
+
+    try:
+        # List all files and subdirectories in the current directory
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+
+            # Check if the item is a file
+            if os.path.isfile(item_path):
+                all_songs.append(item_path)
+
+            # If the item is a directory, recursively process it
+            elif os.path.isdir(item_path):
+                all_songs = get_all_songs_path(item_path, all_songs)
+
+    except Exception as e:
+        print(f"An error occurred while fetching all songs: {e}")
+
+    return all_songs
 
 async def main():
 
-    # name = "Freestylers & MC Spyda - My Sound (TOMY RMX)"
-    # user = "TOMY"
-    # song = {"name":name, "user":user}
-    # d_data = get_download_data(name)["audios"][""]
+    # all = get_all_songs_path("songs")
+    # duped = []
+    # non_duped = []
+    # for song in all:
+    #     song_name = song.split("\\")[-1].replace(".mp3", "")
+    #     if song_name not in non_duped:
+    #         non_duped.append(song_name)
+    #     else:
+    #         duped.append(song)
+    # print(duped)
+    # sys.exit()
 
-    # for link in d_data:
-    #     print(link["tit_art"])
-    # print(len(d_data))
-
-    likes_to_download = 'likes.txt'
-    links_file_name = f'{likes_to_download.replace(".txt","")}_download_links.txt'
+    base_filename = "f11.txt"
+    likes_to_download = f'lists/{base_filename}'
+    links_file_name = f'links/{base_filename}'
 
     # If download links file doesn't exist fetch songs
     if not os.path.isfile(links_file_name):
@@ -225,11 +290,6 @@ async def main():
                     print(f"Replaced {string} {song}")
         
             song_file_clean.append(song)
-        
-        # Open the file in write mode and write the list to it
-        # with open("cleanup.txt", "w") as file:
-        #     for item in song_file_clean:
-        #         file.write(item + "\n")
 
         # Separate user which uploaded from song name
         song_list = []
@@ -238,27 +298,33 @@ async def main():
             song_name = song.split(",")[1].replace('!', "")
             song_list.append({"user" : user, "name" : song_name})
 
-        # Fetch download links
-        download_links = {}
+        # Get download links
         print("Obtaining download links")
+        download_links = {}
+
         n = len(song_file_clean)
         i = 1
-        for song in song_list:
-            tic = time.perf_counter()
-            # Join user again for retrying in download
-            download_links[song["user"] + "," + song["name"]] = get_song_download_links(song)
-            toc = time.perf_counter()
-            print(f"Fetched {song['name']} in {toc - tic:0.2f} seconds")
-            print(f"Progress {i}/{n}")
-            print("-"*50)
-            i = i +1
+        save_lock = threading.Lock()
 
-            # Save every 5 songs
-            if i % 5 == 0:
-                save_dict_to_file(links_file_name, download_links)
+        # Concurrently fetch download links
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:  # Adjust the max_workers as needed
+            futures = {executor.submit(get_song_download_links, song): song for song in song_list}
+            for future in concurrent.futures.as_completed(futures):
+                song = futures[future]
+                try:
+                    download_links[song["user"] + "," + song["name"]] = future.result()
+                except Exception as e:
+                    print(f"Error fetching links for {song['name']}: {e}")
 
-        # Write the dictionary as a string to a file    
-        save_dict_to_file(links_file_name, download_links)
+                i += 1
+                if i % 5 == 0:
+                    with save_lock:
+                        print(f"Progress: {i}/{n}")
+                        save_dict_to_file(links_file_name, download_links)
+
+        # Write the dictionary to the file after all threads have completed
+        with save_lock:
+            save_dict_to_file(links_file_name, download_links)
     
     else:
 
@@ -280,49 +346,81 @@ async def main():
         # if changes_made:
         #     save_dict_to_file(links_file_name, loaded_data)
         # Now you can work with the loaded_data dictionary
+        
+        all_songs = get_all_songs("songs")
+        already_in_library = 0
+        already_downloaded = 0
+        no_links = 0
+        no_name_match = 0
+        no_bitrate_match = 0
+
+        non_matching_names = []
 
         for song, links in loaded_data.items():
 
             song_user = song.split(",")[0]
             song_name = song.split(",")[1]
 
+            # If song is already downloaded in another folder skip
+            if song_name in all_songs:
+                temp_string = f"{song_name} already in library"
+                already_in_library += 1
+                pretty_print(temp_string)
+                continue
+            
+            # If song already downloaded in this folder skip
             if len(links) > 0 and 'downloaded' in links[-1] and links[-1]['downloaded'] != False:
                 temp_string = f"{song_name} already downloaded as {links[-1]['downloaded']}"
-                print(temp_string)
-                print("-" * len(temp_string))
+                already_downloaded += 1
+                pretty_print(temp_string)
                 continue
-
+            
+            # If no links found skip
             if len(links) == 0:
-                print(f"{song_name} was not found")
+                temp_string = f"{song_name} was not found"
+                no_links += 1
+                pretty_print(temp_string)
                 continue
             
             elif len(links) >= 1:
                 
                 # Download if song name == current song and bitrate >= 320
-                print(song_user + ", " + song_name)
-                print("-" * len(song_user + " " + song_name))
+                temp_string = f"Attempting to download {song_name}"
+                print(temp_string)
 
                 # Initialize variables to track the longest track's length and index
                 longest_length = 0
                 longest_index = -1
 
+                name_match = False  # Track if a name match has been found
+                bitrate_match = False  # Track if a bitrate match has been found
+
                 for i, links_data in enumerate(links):
                     if 'name' not in links_data:
                         break
-                    if links_data['name'] == song_name and links_data['bitrate'] is not None and links_data['bitrate'] >= 320:
-                        if links_data['length'] > longest_length:
-                            longest_length = links_data['length']
-                            longest_index = i
+                    if links_data['name'] == song_name:
+                        name_match = True
+                        if links_data['bitrate'] is not None and links_data['bitrate'] >= 320:
+                            bitrate_match = True
+                            if links_data['length'] > longest_length:
+                                longest_length = links_data['length']
+                                longest_index = i
 
                 if longest_index >= 0:
                     song_data = links[longest_index]
                     song_name = song_data["name"]
                     song_download_link = song_data["url"]
-                    await download_song_async(song_name, song_download_link, likes_to_download.split(".txt")[0])
-                    loaded_data[song][-1]["downloaded"] = song_name
-                    save_dict_to_file(links_file_name, loaded_data)
+                    if await download_song_async(song_name, song_download_link, base_filename.split(".txt")[0]):
+                        loaded_data[song][-1]["downloaded"] = song_name
+                        save_dict_to_file(links_file_name, loaded_data)
                 else:
-                    print("No matching links with sufficient bitrate found.")
+                    if not name_match:
+                        no_name_match += 1  # Increment once per track with no name match
+                    if not bitrate_match:
+                        no_bitrate_match += 1  # Increment once per track with no bitrate match
+                    temp_string = "No matching links with sufficient bitrate found."
+                    pretty_print(temp_string)
+
 
                 # Old behavior let's you choose one by one which track you want, takes a long time
                 #
@@ -351,6 +449,13 @@ async def main():
                 #         print("Invalid input. Please enter a number.")
 
                 # print()  # Empty line for readability
+
+        # Using f-strings for pretty printing
+        print(f"Already in library: {already_in_library}")
+        print(f"Already downloaded: {already_downloaded}")
+        print(f"No links: {no_links}")
+        print(f"No name match: {no_name_match}")
+        print(f"No bitrate match: {no_name_match}")
 
 if __name__ == "__main__":
     asyncio.run(main())
