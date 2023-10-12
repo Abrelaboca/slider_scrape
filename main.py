@@ -202,20 +202,18 @@ async def main():
         
         # Clean up song names
         song_file_clean = []
-        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&',
         strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&', '#', '@'
                             "[YA A LA VENTA]", "YA A LA VENTA",  
                             "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
                             "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
                             "(FREE DOWNLOAD)", "( FREE DOWNLOAD )", "(Free Download)", 
                             "Free DL", "Free Download", "FREE DOWNLOAD", "FREE DL",
-                            "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", 
+                            "[OUT NOW]", "[ OUT NOW ]", "[Out Now]", "OUT NOW", "Out Now", "Out now",
                             "[PREMIERE]",
                             "BEATPORT", "BANDCAMP", 
                             "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
-                            "ON",
-                            "[","]"
-                            "[","]", "     ", "    ", "   ", "  "
+                            "ON",  "(Original Mix)",
+                            "[","]", "     ", "    ", "   ", "  "                            
                             ]
         
         for song in song_file.copy():   
@@ -281,14 +279,14 @@ async def main():
 
         # if changes_made:
         #     save_dict_to_file(links_file_name, loaded_data)
-        
         # Now you can work with the loaded_data dictionary
+
         for song, links in loaded_data.items():
 
             song_user = song.split(",")[0]
             song_name = song.split(",")[1]
 
-            if 'downloaded' in links[-1] and links[-1]['downloaded'] != False:
+            if len(links) > 0 and 'downloaded' in links[-1] and links[-1]['downloaded'] != False:
                 temp_string = f"{song_name} already downloaded as {links[-1]['downloaded']}"
                 print(temp_string)
                 print("-" * len(temp_string))
@@ -296,43 +294,63 @@ async def main():
 
             if len(links) == 0:
                 print(f"{song_name} was not found")
-                print()
-
-            # elif len(value) == 1:
-            #     song_name = value[0][0]
-            #     song_download_link = value[0][1]
-            #     download_song(song_name, song_download_link)
-
+                continue
+            
             elif len(links) >= 1:
                 
+                # Download if song name == current song and bitrate >= 320
                 print(song_user + ", " + song_name)
                 print("-" * len(song_user + " " + song_name))
 
-                for i, links_data in enumerate(links, start=1):
-                    if i < 10:
-                        print(f"{i}. {links_data['name']:<99} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
-                    elif i == 10:
-                        print(f"{i}. {links_data['name']:<98} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+                # Initialize variables to track the longest track's length and index
+                longest_length = 0
+                longest_index = -1
 
-                while True:
-                    try:
-                        link_index = int(input("Enter the number of the link you want to download (0 to skip): "))
-                        if link_index == 0:
-                            break
-                        elif 1 <= link_index <= len(links):
-                            song_name = links[link_index - 1]["name"]
-                            song_download_link = links[link_index - 1]["url"]
-                            await download_song_async(song_name, song_download_link, likes_to_download.split(".txt")[0])
-                            #download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
-                            loaded_data[song][-1]["downloaded"] = song_name
-                            save_dict_to_file(links_file_name, loaded_data)
-                            break
-                        else:
-                            print("Invalid choice. Please enter a valid number.")
-                    except ValueError:
-                        print("Invalid input. Please enter a number.")
+                for i, links_data in enumerate(links):
+                    if 'name' not in links_data:
+                        break
+                    if links_data['name'] == song_name and links_data['bitrate'] is not None and links_data['bitrate'] >= 320:
+                        if links_data['length'] > longest_length:
+                            longest_length = links_data['length']
+                            longest_index = i
 
-                print()  # Empty line for readability
+                if longest_index >= 0:
+                    song_data = links[longest_index]
+                    song_name = song_data["name"]
+                    song_download_link = song_data["url"]
+                    await download_song_async(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                    loaded_data[song][-1]["downloaded"] = song_name
+                    save_dict_to_file(links_file_name, loaded_data)
+                else:
+                    print("No matching links with sufficient bitrate found.")
+
+                # Old behavior let's you choose one by one which track you want, takes a long time
+                #
+                # for i, links_data in enumerate(links, start=1):
+                #     if i < 10:
+                #         print(f"{i}. {links_data['name']:<99} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+                #     elif i == 10:
+                #         print(f"{i}. {links_data['name']:<98} || {int_to_min_seconds(links_data['length'])} || {links_data['bitrate']}kbps")
+
+                # while True:
+                #     try:
+                #         link_index = int(input("Enter the number of the link you want to download (0 to skip): "))
+                #         if link_index == 0:
+                #             break
+                #         elif 1 <= link_index <= len(links):
+                #             song_name = links[link_index - 1]["name"]
+                #             song_download_link = links[link_index - 1]["url"]
+                #             await download_song_async(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                #             #download_song(song_name, song_download_link, likes_to_download.split(".txt")[0])
+                #             loaded_data[song][-1]["downloaded"] = song_name
+                #             save_dict_to_file(links_file_name, loaded_data)
+                #             break
+                #         else:
+                #             print("Invalid choice. Please enter a valid number.")
+                #     except ValueError:
+                #         print("Invalid input. Please enter a number.")
+
+                # print()  # Empty line for readability
 
 if __name__ == "__main__":
     asyncio.run(main())
