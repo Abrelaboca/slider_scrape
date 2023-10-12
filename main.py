@@ -214,6 +214,13 @@ def get_all_songs(directory, all_songs=None):
 
     return all_songs
 
+def jaccard_similarity(str1, str2):
+    set1 = set(str1.split())  # Convert the first string to a set of words
+    set2 = set(str2.split())  # Convert the second string to a set of words
+    intersection = len(set1.intersection(set2))
+    union = len(set1) + len(set2) - intersection
+    return intersection / union
+
 def pretty_print(string):
     print(string)
     print("-"*len(string))
@@ -255,7 +262,7 @@ async def main():
     # print(duped)
     # sys.exit()
 
-    base_filename = "f11.txt"
+    base_filename = "likes.txt"
     likes_to_download = f'lists/{base_filename}'
     links_file_name = f'links/{base_filename}'
 
@@ -350,11 +357,12 @@ async def main():
         all_songs = get_all_songs("songs")
         already_in_library = 0
         already_downloaded = 0
+        downloaded = 0
         no_links = 0
         no_name_match = 0
-        no_bitrate_match = 0
-
-        non_matching_names = []
+        no_bitrate_match = 0    
+        
+        non_matching_names = {}
 
         for song, links in loaded_data.items():
 
@@ -395,22 +403,33 @@ async def main():
                 name_match = False  # Track if a name match has been found
                 bitrate_match = False  # Track if a bitrate match has been found
 
-                for i, links_data in enumerate(links):
+                # Check if name is equal and bitrate >= 320
+                for i, links_data in enumerate(links):                   
                     if 'name' not in links_data:
                         break
-                    if links_data['name'] == song_name:
+
+                    searching_song = links_data['name']
+                    searching_song = ''.join(c for c in searching_song if c not in emoji.EMOJI_DATA)
+
+                    if searching_song.lower() == song_name.lower():
                         name_match = True
                         if links_data['bitrate'] is not None and links_data['bitrate'] >= 320:
                             bitrate_match = True
                             if links_data['length'] > longest_length:
                                 longest_length = links_data['length']
                                 longest_index = i
+                    else:
+                        if song_name not in non_matching_names:
+                            non_matching_names[song_name] = []
+                        # Calculate jaccard_similarity
+                        non_matching_names[song_name].append({"name" : links_data['name'], "sim" : jaccard_similarity(links_data['name'], song_name)})
 
                 if longest_index >= 0:
                     song_data = links[longest_index]
                     song_name = song_data["name"]
                     song_download_link = song_data["url"]
                     if await download_song_async(song_name, song_download_link, base_filename.split(".txt")[0]):
+                        downloaded += 1
                         loaded_data[song][-1]["downloaded"] = song_name
                         save_dict_to_file(links_file_name, loaded_data)
                 else:
@@ -451,11 +470,26 @@ async def main():
                 # print()  # Empty line for readability
 
         # Using f-strings for pretty printing
+        print(f"Downloaded: {downloaded}")
         print(f"Already in library: {already_in_library}")
         print(f"Already downloaded: {already_downloaded}")
         print(f"No links: {no_links}")
         print(f"No name match: {no_name_match}")
         print(f"No bitrate match: {no_name_match}")
+        print('-'*50)
+        
+        # After the loop, you can use non_matching_names to see the differences
+        if non_matching_names:
+            print("Names that don't match:")
+            for song_name, non_matching_data in non_matching_names.items():
+                matching_data = [data for data in non_matching_data if data['sim'] > 0.7]
+                if len(matching_data) > 0:
+                    print(f"Song: {song_name}")
+                    for data in non_matching_data:
+                        if data['sim'] > 0.7:                        
+                            #print(data)
+                            print(f"\t{data['name']}, Similarity: {data['sim']}")
+                    print('-'*50)
 
 if __name__ == "__main__":
     asyncio.run(main())
