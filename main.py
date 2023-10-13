@@ -155,14 +155,11 @@ def load_dict_from_file(filename):
 async def download_song_async(file_name, download_link, path):
 
     file_name = file_name.replace('?','').replace('>','')
+    
+    if not os.path.exists(f"{path}"):
+        os.makedirs(f"{path}")
 
-    if not os.path.exists("songs"):
-        os.mkdir("songs")
-
-    if not os.path.exists(f"songs/{path}"):
-        os.mkdir(f"songs/{path}")
-
-    if not os.path.isfile(f"songs/{path}/{file_name}.mp3"):
+    if not os.path.isfile(f"{path}/{file_name}.mp3"):
         if 'https' not in download_link:
             download_link = "https://slider.kz/" + download_link
         try:
@@ -172,7 +169,7 @@ async def download_song_async(file_name, download_link, path):
 
                         content = await response.read()
 
-                        with open(f"songs/{path}/{file_name}.mp3", "wb") as f:
+                        with open(f"{path}/{file_name}.mp3", "wb") as f:
                             f.write(content)
 
                         temp_string = f"Downloaded {file_name}"
@@ -265,6 +262,8 @@ async def main():
     base_filename = "likes.txt"
     likes_to_download = f'lists/{base_filename}'
     links_file_name = f'links/{base_filename}'
+    song_download_path = f'songs/{base_filename.replace(".txt","")}'
+    similar_song_download_path = f'songs/{base_filename.replace(".txt","")}/similar'
 
     # If download links file doesn't exist fetch songs
     if not os.path.isfile(links_file_name):
@@ -284,7 +283,7 @@ async def main():
                             "[PREMIERE]",
                             "BEATPORT", "BANDCAMP", 
                             "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
-                            "ON",  "(Original Mix)",
+                            "ON", #  "(Original Mix)",
                             "[","]", "     ", "    ", "   ", "  "                            
                             ]
         
@@ -400,11 +399,17 @@ async def main():
                 longest_length = 0
                 longest_index = -1
 
+                similar_longest_length = 0
+                similar_longest_index = -1
+                similar_max_sim = 0
+
                 name_match = False  # Track if a name match has been found
                 bitrate_match = False  # Track if a bitrate match has been found
 
                 # Check if name is equal and bitrate >= 320
-                for i, links_data in enumerate(links):                   
+                for i, links_data in enumerate(links):
+
+                    # Sometimes no links songs get stuck here
                     if 'name' not in links_data:
                         break
 
@@ -418,26 +423,41 @@ async def main():
                             if links_data['length'] > longest_length:
                                 longest_length = links_data['length']
                                 longest_index = i
-                    else:
-                        if song_name not in non_matching_names:
-                            non_matching_names[song_name] = []
+                    else:                    
                         # Calculate jaccard_similarity
-                        non_matching_names[song_name].append({"name" : links_data['name'], "sim" : jaccard_similarity(links_data['name'], song_name)})
+                        sim = jaccard_similarity(searching_song.lower(), song_name.lower())
+                        if links_data['bitrate'] is not None and links_data['bitrate'] >= 320 and sim > 0.7:
+                            if sim >= similar_max_sim:
+                                similar_max_sim = sim
+                                if links_data['length'] > similar_longest_length:
+                                    similar_longest_length = links_data['length']
+                                    similar_longest_index = i
 
+                # If from all links there is an index that matches the name and is the longest of them, download
                 if longest_index >= 0:
                     song_data = links[longest_index]
                     song_name = song_data["name"]
                     song_download_link = song_data["url"]
-                    if await download_song_async(song_name, song_download_link, base_filename.split(".txt")[0]):
+                    if await download_song_async(song_name, song_download_link, song_download_path):
+                        downloaded += 1
+                        loaded_data[song][-1]["downloaded"] = song_name
+                        save_dict_to_file(links_file_name, loaded_data)
+                # Has non matching names
+                elif similar_longest_index >= 0:
+                    song_data = links[similar_longest_index]
+                    song_name = song_data["name"]
+                    song_download_link = song_data["url"]
+                    if await download_song_async(song_name, song_download_link, similar_song_download_path):
                         downloaded += 1
                         loaded_data[song][-1]["downloaded"] = song_name
                         save_dict_to_file(links_file_name, loaded_data)
                 else:
                     if not name_match:
                         no_name_match += 1  # Increment once per track with no name match
+                        temp_string = "No matching links with name similarity."
                     if not bitrate_match:
                         no_bitrate_match += 1  # Increment once per track with no bitrate match
-                    temp_string = "No matching links with sufficient bitrate found."
+                        temp_string = "No matching links with sufficient bitrate found."
                     pretty_print(temp_string)
 
 
