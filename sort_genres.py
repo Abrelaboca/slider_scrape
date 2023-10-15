@@ -43,7 +43,7 @@ def move_song(song_name, source_path, genre):
     try:
         os.rename(source_path, destination_path)
         print(f"Moved '{source_path}' to '{genre}'")
-        time.sleep(0.25)
+        time.sleep(0.1)
     except FileExistsError as fe:
         print(f"{source_path} exists in destination.")
     
@@ -115,10 +115,8 @@ def read_bpm_data():
             return json.load(file)
     return []
 
-def main():
-    
-    create_genre_directories()
-
+# Function to create artist-specific folders and move songs to those folders within a genre directory.
+def organize_songs_by_genre():
     no_bpm_list = []
 
     for root, _, files in os.walk(source_directory):
@@ -140,6 +138,35 @@ def main():
                     no_bpm_list.append(song_path)
     
     print(f"Unidentified: {no_bpm_list}")
+
+# Function to create artist-specific folders and move songs to those folders within a genre directory.
+def organize_songs_by_artist_in_genre(genre_directory):
+    for root, _, files in os.walk(os.path.join(source_directory, genre_directory)):
+        for file in files:
+            if file.endswith(".mp3"):
+                song_path = os.path.join(root, file)
+
+                # Check if the parent directory matches the genre directory.
+                parent_directory = os.path.basename(os.path.dirname(song_path))
+                if parent_directory == genre_directory:
+                    try:
+                        artist_name, _ = file.split(" - ", 1)
+                        artist_directory = os.path.join(root, artist_name)
+                    except ValueError as ve:
+                        print("Song not in {artist - song} format")
+                    if not os.path.exists(artist_directory):
+                        os.mkdir(artist_directory)
+                    move_song(file, song_path, os.path.join(genre_directory, artist_name))
+
+def main():
+    
+    create_genre_directories()
+
+    #organize_songs_by_genre()
+
+    # Organize songs by artist within each genre directory.
+    for genre in genre_directories.keys():
+        organize_songs_by_artist_in_genre(genre)
 
 if __name__ == "__main__":
     main()
