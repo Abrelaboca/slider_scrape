@@ -137,7 +137,7 @@ def organize_songs_by_genre():
                     #print(f"{song_path} is {genre}")
                     no_bpm_list.append(song_path)
     
-    print(f"Unidentified: {no_bpm_list}")
+    print(f"Unidentified: {len(no_bpm_list)}")
 
 # Function to create artist-specific folders and move songs to those folders within a genre directory.
 def organize_songs_by_artist_in_genre(genre_directory):
@@ -158,11 +158,38 @@ def organize_songs_by_artist_in_genre(genre_directory):
                         os.mkdir(artist_directory)
                     move_song(file, song_path, os.path.join(genre_directory, artist_name))
 
+def jaccard_similarity(str1, str2):
+    set1 = set(str1.split())  # Convert the first string to a set of words
+    set2 = set(str2.split())  # Convert the second string to a set of words
+    intersection = len(set1.intersection(set2))
+    union = len(set1) + len(set2) - intersection
+    return intersection / union
+
+# Function to find similar artist directories within the "breakbeat" genre.
+def find_similar_artist_directories(genre_directory):
+
+    artist_folders = os.listdir(os.path.join(source_directory, genre_directory))
+
+    similar_directories = []
+
+    for i in range(len(artist_folders)):
+        for j in range(i + 1, len(artist_folders)):
+            similarity_score = jaccard_similarity(artist_folders[i], artist_folders[j])
+
+            if similarity_score >= 0.5:  # You can adjust the similarity threshold as needed
+                similar_directories.append((artist_folders[i], artist_folders[j]))
+
+    return similar_directories
+
 def main():
+
+    # for dir in find_similar_artist_directories("breakbeat"):
+    #     print(dir)
+
     
     create_genre_directories()
 
-    #organize_songs_by_genre()
+    organize_songs_by_genre()
 
     # Organize songs by artist within each genre directory.
     for genre in genre_directories.keys():
