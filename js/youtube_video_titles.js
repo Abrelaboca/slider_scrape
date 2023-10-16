@@ -32,35 +32,32 @@ var insertJQuery = function() {
 	script.src = "https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js";
 	document.getElementsByTagName('head')[0].appendChild(script);
 };
-
 var outputLikes = function() {
-    var separator = '\t';
-    var results = [];
+  var separator = ',';
+  var results = [];
 
-    // Define the XPath expressions for video titles and durations
-    var titleXPath = "/html/body/ytd-app/div[1]/ytd-page-manager/ytd-browse/ytd-two-column-browse-results-renderer/div[1]/ytd-rich-grid-renderer//h3/a/yt-formatted-string";
-    var durationXPath = "/html/body/ytd-app/div[1]/ytd-page-manager/ytd-browse/ytd-two-column-browse-results-renderer/div[1]/ytd-rich-grid-renderer//ytd-playlist-thumbnail/a/yt-formatted-string";
+  // Select all video title and author elements with the specified ID
+  var titleElements = document.querySelectorAll('#video-title');
+  var authorElements = document.querySelectorAll('a[dir="auto"][spellcheck="false"]');
 
-    // Evaluate the XPath expressions to get the title and duration elements
-    var titleElements = document.evaluate(titleXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-    var durationElements = document.evaluate(durationXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-
-    // Ensure the number of titles and durations match
-    if (titleElements.snapshotLength !== durationElements.snapshotLength) {
-        console.log("Error: Number of titles and durations does not match.");
-        return;
+  // Ensure the elements are found and have the same length
+  if (titleElements.length) {
+    for (var i = 0; i < titleElements.length; i++) { // Start from the second element
+      var videoTitle = titleElements[i].textContent.trim();
+      var videoAuthor = authorElements[i+1].textContent.trim();
+      results.push(videoTitle + separator + videoAuthor);
     }
+  } else {
+    console.log("Error: Number of titles and authors does not match.");
+    return;
+  }
 
-    // Iterate through the elements and extract titles and durations
-    for (var i = 0; i < titleElements.snapshotLength; i++) {
-        var videoTitle = titleElements.snapshotItem(i).textContent.trim();
-        var videoDuration = durationElements.snapshotItem(i).textContent.trim();
-        results.push(videoTitle + separator + videoDuration);
-    }
-
-    console.log(results.join('\n'));
+  console.log(results.join('\n'));
 };
 
+outputLikes();
+
+outputLikes();
 // Start the scrolling loop
 scrollToBottom();
 insertJQuery();
