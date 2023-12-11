@@ -44,8 +44,8 @@ var outputLikes = function() {
   if (titleElements.length) {
     for (var i = 0; i < titleElements.length; i++) { // Start from the second element
       var videoTitle = titleElements[i].textContent.trim();
-      var videoAuthor = authorElements[i+1].textContent.trim();
-      results.push(videoTitle + separator + videoAuthor);
+      var videoAuthor = authorElements[i+1]?.innerText ? authorElements[i].innerText.trim() : 'N/A';;
+      results.push(videoAuthor + separator + videoTitle);
     }
   } else {
     console.log("Error: Number of titles and authors does not match.");
@@ -55,9 +55,6 @@ var outputLikes = function() {
   console.log(results.join('\n'));
 };
 
-outputLikes();
-
-outputLikes();
 // Start the scrolling loop
 scrollToBottom();
 insertJQuery();
