@@ -44,8 +44,7 @@ var outputLikes = function() {
   if (titleElements.length) {
     for (var i = 0; i < titleElements.length; i++) { // Start from the second element
       var videoTitle = titleElements[i].textContent.trim();
-      var videoAuthor = authorElements[i+1]?.innerText ? authorElements[i].innerText.trim() : 'N/A';;
-      results.push(videoAuthor + separator + videoTitle);
+      results.push(separator + videoTitle);
     }
   } else {
     console.log("Error: Number of titles and authors does not match.");
