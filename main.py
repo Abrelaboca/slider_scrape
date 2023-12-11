@@ -1,5 +1,4 @@
 import requests
-from bs4 import BeautifulSoup
 import ast
 import os
 import time
@@ -11,32 +10,37 @@ import emoji
 import concurrent.futures
 import threading
 
-def get_download_data(song_name):
+def get_download_data(song):
 
     #song_name = song_name.replace("&","%26")
+
+    song_name = song["name"]
+    if "-" not in song_name and "vs" not in song_name.lower():
+        song_name = song["user"] + " - " + song["name"]
 
     search_url = f"https://slider.kz/vk_auth.php?q={song_name.replace(' ', '%20')}"
     headers = {
         "Referer": "https://slider.kz/"
     }
     #print("SEARCH URL: " + search_url)
-    response = requests.get(search_url, headers=headers)
-    return response.json()
+    response = requests.get(search_url, headers=headers).json()
+    return response
 
 def get_song_download_links(song):
 
     song_name = song["name"]
     song_user = song["user"]
 
-    if '-' not in song_name:
-        song_name = song_user + " " + song_name
+    data = get_download_data(song)
 
-    data = get_download_data(song_name)
+    if "-" not in song_name and "vs" not in song_name.lower():
+        song_name = song_user + " - " + song_name
+    
     #Try to add user if song name didn't return any results
-    for audio_info in data["audios"][""]:
-        if len(audio_info) == 0:
-            #if song_user not in song_name:
-            data = get_download_data(song_user + " " + song_name)
+    # for audio_info in data["audios"][""]:
+    #     if len(audio_info) == 0:
+    #         #if song_user not in song_name:
+    #         data = get_download_data(song_user + " " + song_name)
 
     download_links = []
     slice = data["audios"][""][0:10]
@@ -67,7 +71,7 @@ def get_song_download_links(song):
                 bitrate = None
 
             toc = time.perf_counter()
-            print(f"Fetched {name} in {toc - tic:0.2f}s")
+            #print(f"Fetched {name} in {toc - tic:0.2f}s")
             download_links.append({"name" : name, "url" : url, "length" : length, "bitrate" : bitrate, "downloaded" : False})
 
     return download_links
@@ -154,7 +158,7 @@ def load_dict_from_file(filename):
 
 async def download_song_async(file_name, download_link, path):
 
-    file_name = file_name.replace('?','').replace('>','')
+    file_name = file_name.replace('?','').replace('>','').replace(':','')
     
     if not os.path.exists(f"{path}"):
         os.makedirs(f"{path}")
@@ -259,7 +263,7 @@ async def main():
     # print(duped)
     # sys.exit()
 
-    base_filename = "likes.txt"
+    base_filename = "all_youtube.txt"
     likes_to_download = f'lists/{base_filename}'
     links_file_name = f'links/{base_filename}'
     song_download_path = f'songs/{base_filename.replace(".txt","")}'
@@ -273,7 +277,8 @@ async def main():
         
         # Clean up song names
         song_file_clean = []
-        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&', '#', '@'
+        strings_to_replace = ["!", "¡", "·", "*", "⫷", "⫸", '"', '&', '#', '@',
+                            " - Topic",
                             "[YA A LA VENTA]", "YA A LA VENTA",  
                             "[YA DISPONIBLE]", "[Ya Disponible]", "Ya disponible",
                             "[FREE DOWNLOAD]", "[Free Download]", "[Free DL]", 
@@ -283,19 +288,21 @@ async def main():
                             "[PREMIERE]",
                             "BEATPORT", "BANDCAMP", 
                             "(Patreon Exclusive)", "[PATREON EXCLUSIVE]", "PATREON",
-                            "ON", #  "(Original Mix)",
-                            "[","]", "     ", "    ", "   ", "  "                            
+                            "ON", "TOP 1", "(DNB)", #  "(Original Mix)",
+                            "{","}","[","]", "     ", "    ", "   ", "  "                            
                             ]
         
         for song in song_file.copy():   
             # Remove emojis and strings
             song = ''.join(c for c in song if c not in emoji.EMOJI_DATA)
+            song_user = song.split(",")[0]
+            song_name = "".join(song.split(",")[1:])
             for string in strings_to_replace:
-                if string in song:
-                    song = song.replace(string,"")
-                    print(f"Replaced {string} {song}")
+                if string in song_name:
+                    song_name = song_name.replace(string,"")
+                    print(f"Replaced {string} {song_name}")
         
-            song_file_clean.append(song)
+            song_file_clean.append(song_user + "," + song_name)
 
         # Separate user which uploaded from song name
         song_list = []
@@ -303,7 +310,7 @@ async def main():
             user = song.split(",")[0]
             song_name = song.split(",")[1].replace('!', "")
             song_list.append({"user" : user, "name" : song_name})
-
+        
         # Get download links
         print("Obtaining download links")
         download_links = {}
@@ -313,18 +320,23 @@ async def main():
         save_lock = threading.Lock()
 
         # Concurrently fetch download links
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:  # Adjust the max_workers as needed
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:  # Adjust the max_workers as needed
             futures = {executor.submit(get_song_download_links, song): song for song in song_list}
             for future in concurrent.futures.as_completed(futures):
                 song = futures[future]
                 try:
-                    download_links[song["user"] + "," + song["name"]] = future.result()
+                    song_name = song["name"]
+                    if "-" not in song_name and "vs" not in song_name.lower():
+                        song_name = song["user"] + " - " + song["name"]
+                    print(f"Fetching {song_name}")
+                    download_links[song_name] = future.result() #download_links[song["user"] + "," + song["name"]] = future.result()
                 except Exception as e:
                     print(f"Error fetching links for {song['name']}: {e}")
 
                 i += 1
                 if i % 5 == 0:
                     with save_lock:
+                        print()
                         print(f"Progress: {i}/{n}")
                         save_dict_to_file(links_file_name, download_links)
 
@@ -365,15 +377,15 @@ async def main():
 
         for song, links in loaded_data.items():
 
-            song_user = song.split(",")[0]
-            song_name = song.split(",")[1]
+            #song_user = song.split(",")[0]
+            song_name = song #.split(",")[1]
 
             # If song is already downloaded in another folder skip
-            if song_name in all_songs:
-                temp_string = f"{song_name} already in library"
-                already_in_library += 1
-                pretty_print(temp_string)
-                continue
+            # if song_name in all_songs:
+            #     temp_string = f"{song_name} already in library"
+            #     already_in_library += 1
+            #     pretty_print(temp_string)
+            #     continue
             
             # If song already downloaded in this folder skip
             if len(links) > 0 and 'downloaded' in links[-1] and links[-1]['downloaded'] != False:
@@ -392,7 +404,7 @@ async def main():
             elif len(links) >= 1:
                 
                 # Download if song name == current song and bitrate >= 320
-                temp_string = f"Attempting to download {song_name}"
+                temp_string = f"{song_name}"
                 print(temp_string)
 
                 # Initialize variables to track the longest track's length and index
@@ -426,12 +438,15 @@ async def main():
                     else:                    
                         # Calculate jaccard_similarity
                         sim = jaccard_similarity(searching_song.lower(), song_name.lower())
-                        if links_data['bitrate'] is not None and links_data['bitrate'] >= 320 and sim > 0.7:
-                            if sim >= similar_max_sim:
-                                similar_max_sim = sim
-                                if links_data['length'] > similar_longest_length:
-                                    similar_longest_length = links_data['length']
-                                    similar_longest_index = i
+                        if sim > 0.7:
+                            name_match = True
+                            if links_data['bitrate'] is not None and links_data['bitrate'] >= 320:
+                                bitrate_match = True
+                                if sim >= similar_max_sim:
+                                    similar_max_sim = sim
+                                    if links_data['length'] > similar_longest_length:
+                                        similar_longest_length = links_data['length']
+                                        similar_longest_index = i
 
                 # If from all links there is an index that matches the name and is the longest of them, download
                 if longest_index >= 0:
@@ -442,7 +457,8 @@ async def main():
                         downloaded += 1
                         loaded_data[song][-1]["downloaded"] = song_name
                         save_dict_to_file(links_file_name, loaded_data)
-                # Has non matching names
+
+                # Has similar matching names
                 elif similar_longest_index >= 0:
                     song_data = links[similar_longest_index]
                     song_name = song_data["name"]
@@ -458,7 +474,11 @@ async def main():
                     if not bitrate_match:
                         no_bitrate_match += 1  # Increment once per track with no bitrate match
                         temp_string = "No matching links with sufficient bitrate found."
+                    
                     pretty_print(temp_string)
+                    for link in links[:10]:
+                        print(link["name"])
+                    
 
 
                 # Old behavior let's you choose one by one which track you want, takes a long time
